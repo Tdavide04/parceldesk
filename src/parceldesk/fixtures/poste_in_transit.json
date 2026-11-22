@@ -1,0 +1,32 @@
+[
+  {
+    "idTracciatura": "1PD0FAKE00001",
+    "tipoSpedizione": "P",
+    "tipoProdotto": "POSTEDELIVERY BUSINESS STANDARD",
+    "esitoRicerca": "3",
+    "stato": "3",
+    "flagRitorno": false,
+    "azioni": "",
+    "listaMovimenti": [
+      {
+        "dataOra": 1795175748000,
+        "statoLavorazione": "la spedizione è stata presa in carico presso il Punto Poste-Locker",
+        "luogo": "TABACCHERIA ESEMPIO",
+        "flagRitorno": false,
+        "box": "2",
+        "frazionario": "Y0000"
+      },
+      {
+        "dataOra": 1795198536000,
+        "statoLavorazione": "la spedizione è in transito",
+        "luogo": "Centro Operativo Postale",
+        "flagRitorno": false,
+        "box": "3"
+      }
+    ],
+    "flagNotifica": false,
+    "dataPrevistaConsegna": "Consegna prevista entro lunedì 30 novembre 2026",
+    "actionsMap": {},
+    "statoDaVerificare": false
+  }
+]

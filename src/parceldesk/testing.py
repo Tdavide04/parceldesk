@@ -4,11 +4,17 @@
     desk = ParcelDesk([FakeProvider("poste", {"RR123456789IT": snapshot("RR123456789IT", "poste", "delivered")})])
 """
 import json
+from importlib.resources import files
 from typing import Any
 
 import requests
 
 from parceldesk.domain import Status, TrackingEvent, TrackingSnapshot
+
+
+def load_fixture(name: str) -> Any:
+    """A real carrier response shipped with the package, anonymised (see src/parceldesk/fixtures/)."""
+    return json.loads(files("parceldesk").joinpath("fixtures", f"{name}.json").read_text(encoding="utf-8"))
 
 
 def response(status: int, body: object = None, text: str | None = None, headers: dict[str, str] | None = None) -> requests.Response:
