@@ -1,0 +1,17 @@
+{
+  "tracking_number": "000000000000000000000002",
+  "service": "inpost_locker_standard",
+  "type": "inpost_locker_standard",
+  "status": "delivered",
+  "custom_attributes": {"target_machine_id": "XXX00M"},
+  "tracking_details": [
+    {"origin_status": "PWD", "status": "delivered", "agency": null, "location": null, "datetime": "2026-11-20T16:02:11.000+01:00"},
+    {"origin_status": "UWP", "status": "ready_to_pickup", "agency": null, "location": null, "datetime": "2026-11-20T10:14:01.000+01:00"},
+    {"origin_status": "PDD_2", "status": "out_for_delivery", "agency": null, "location": null, "datetime": "2026-11-20T08:37:45.000+01:00"},
+    {"origin_status": "PWO", "status": "adopted_at_source_branch", "agency": "MI1", "location": null, "datetime": "2026-11-19T05:56:59.000+01:00"},
+    {"origin_status": "NEW", "status": "confirmed", "agency": null, "location": null, "datetime": "2026-11-18T12:58:39.539+01:00"}
+  ],
+  "expected_flow": [],
+  "created_at": "2026-11-18T12:58:39.539+01:00",
+  "updated_at": "2026-11-20T16:02:11.005+01:00"
+}

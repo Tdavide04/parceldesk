@@ -13,8 +13,12 @@ from parceldesk.domain import Status, TrackingEvent, TrackingSnapshot
 
 
 def load_fixture(name: str) -> Any:
-    """A real carrier response shipped with the package, anonymised (see src/parceldesk/fixtures/)."""
-    return json.loads(files("parceldesk").joinpath("fixtures", f"{name}.json").read_text(encoding="utf-8"))
+    """A carrier response shipped with the package (see src/parceldesk/fixtures/README.md): JSON parsed, HTML as text."""
+    folder = files("parceldesk").joinpath("fixtures")
+    if folder.joinpath(f"{name}.json").is_file():
+        return json.loads(folder.joinpath(f"{name}.json").read_text(encoding="utf-8"))
+    raw = folder.joinpath(f"{name}.html").read_bytes()
+    return raw.decode("utf-8") if b"charset=iso-8859" not in raw[:2000].lower() else raw.decode("iso-8859-15")
 
 
 def response(status: int, body: object = None, text: str | None = None, headers: dict[str, str] | None = None) -> requests.Response:

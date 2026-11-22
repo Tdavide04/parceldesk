@@ -6,42 +6,17 @@ One POST answers several numbers. Confirmed on real responses (fixtures `poste_*
 - movements come oldest first, `dataOra` is epoch milliseconds, `statoLavorazione` is the carrier's sentence;
 - `dataPrevistaConsegna` is a sentence ("Consegna prevista entro lunedì 30 novembre 2026").
 
-Only "presa in carico" and "in transito" have been seen so far. The other phrases below come from the wording of
-the poste.it pages and are not yet confirmed by a response: a phrase that matches nothing maps to `unknown`.
+Statuses come from the sentence, with the phrases shared by all carriers (`carriers._common.PHRASES`).
 """
-import re
 from datetime import UTC, datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
+from parceldesk.carriers._common import ROME, status_of
 from parceldesk.domain import Status, TrackingEvent, TrackingSnapshot
 from parceldesk.http import CarrierHttp
 from parceldesk.provider import PermanentTrackingError
 
 URL = "https://www.poste.it/online/dovequando/DQ-REST/ricercamultipla"
-ROME = ZoneInfo("Europe/Rome")
-
-# regular expressions; the first match wins, so the more specific phrases come first
-PHRASES: tuple[tuple[str, Status], ...] = (
-    (r"\bnon\b.*consegnat", "delivery_failure"),
-    ("mancata consegna", "delivery_failure"),
-    ("consegnata", "delivered"),
-    ("in consegna", "out_for_delivery"),
-    ("disponibile per il ritiro", "available_for_pickup"),
-    ("in giacenza", "available_for_pickup"),
-    ("in restituzione", "exception"),
-    ("in transito", "in_transit"),  # confirmed
-    ("presa in carico", "in_transit"),  # confirmed
-    ("in attesa di essere spedita", "info_received"),
-)
-
-
-def status_of(phrase: str) -> Status:
-    text = phrase.lower()
-    for pattern, status in PHRASES:
-        if re.search(pattern, text):
-            return status
-    return "unknown"
 
 
 class PosteItaliane:
