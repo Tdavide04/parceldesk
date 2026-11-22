@@ -1,0 +1,8 @@
+{
+  "_note": "From the documented example of /register (https://api.17track.net/en/doc), with Italian numbers.",
+  "code": 0,
+  "data": {
+    "accepted": [{"origin": 1, "number": "RR123456789IT", "carrier": 9071, "email": null, "lang": null}],
+    "rejected": [{"number": "AB12345", "carrier": 0, "error": {"code": -18019901, "message": "The tracking number 'AB12345' has been registered, don't need to repeat registration."}}]
+  }
+}
