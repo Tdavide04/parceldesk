@@ -1,32 +1,40 @@
 # parceldesk
 
-Shipment tracking for [Personal Collection Hub](https://github.com/Tdavide04/personal-collection-hub): canonical domain types, a `TrackingProvider` port and a client for the [17TRACK Tracking API v2.4](https://api.17track.net/en/doc).
+Shipment tracking for [Personal Collection Hub](https://github.com/Tdavide04/personal-collection-hub): canonical domain types, a `TrackingProvider` port with one provider per carrier, and `ParcelDesk`, which sends each number to its carrier.
 
-It translates only: no persistence, scheduling or notifications. The hub stores shipments and their event history, polls for updates in its worker (17TRACK refreshes every 6–12 hours, so no webhook is needed: hub ADR-0010) and shows them in the dashboard.
+Providers read the carriers' own public tracking pages over plain HTTP, as the Subito and Vinted adapters do. No aggregator and no API key. ParcelDesk translates only: the hub stores shipments and their history, polls for updates in its worker (hub ADR-0010) and shows them in the dashboard.
 
 | Module | Contents |
 | --- | --- |
-| `parceldesk.domain` | `TrackedNumber`, `Registration`, `TrackingSnapshot`, `TrackingEvent`, canonical `Status`, batch results |
+| `parceldesk.domain` | `TrackedNumber`, `TrackingSnapshot`, `TrackingEvent`, canonical `Status`, `TrackingResult`, `RejectedNumber` |
 | `parceldesk.provider` | The `TrackingProvider` port, `TransientTrackingError`, `PermanentTrackingError` |
-| `parceldesk.seventeentrack` | `SeventeenTrack`: register, track (polling `gettrackinfo`), stop, reactivate, quota; batches of 40, 3 requests per second, retries on 429/5xx |
-| `parceldesk.testing` | Fake 17TRACK transport and example responses |
+| `parceldesk.http` | `CarrierHttp`: a gap between requests, retries on 429/5xx/timeouts honouring Retry-After |
+| `parceldesk.desk` | `ParcelDesk` and `detect_carriers`, which gives format hints for the user to confirm |
+| `parceldesk.testing` | Fake HTTP session, clock and provider |
+
+## Carriers
+
+| Carrier | Endpoint | Status |
+| --- | --- | --- |
+| Poste Italiane (`poste`) | `POST www.poste.it/online/dovequando/DQ-REST/ricercamultipla`, JSON, several numbers per call | reachable, provider to write |
+| InPost (`inpost`) | `GET api-shipx-it.easypack24.net/v1/tracking/{number}`, JSON, no key | reachable, provider to write |
+| GLS Italy (`gls`) | `POST www.gls-italy.com/it/servizi-per-destinatari/dettaglio-spedizione`, HTML form | reachable, provider to write |
+| BRT (`brt`) | `GET vas.brt.it/vas/sped_det_show.hsm?Nspediz={number}`, HTML | reachable, provider to write |
+
+A provider is written only from real, anonymised responses saved in `src/parceldesk/fixtures/`. Providers never get past a CAPTCHA or a bot check: when a carrier adds one, the provider raises `PermanentTrackingError`.
 
 ## Use
 
 ```python
-from parceldesk import Registration, SeventeenTrack, TrackedNumber
+from parceldesk import ParcelDesk, TrackedNumber
 
-tracker = SeventeenTrack(api_key)
-tracker.register([Registration("RR123456789IT", carrier=9071, tag="in:42", lang="it")])
-for snapshot in tracker.track([TrackedNumber("RR123456789IT", 9071)]).snapshots:
-    print(snapshot.status, snapshot.events[0].description)
+desk = ParcelDesk([poste_provider, brt_provider])
+result = desk.track([TrackedNumber("RR123456789IT", "poste"), TrackedNumber("123456789012", "brt")])
+for snapshot in result.snapshots:
+    print(snapshot.carrier, snapshot.status, snapshot.events[0].description if snapshot.events else "-")
 ```
 
-Batch calls can succeed for some numbers and fail for others: check `rejected` in every result. Registering costs 17TRACK quota once per number; reading does not start new tracking.
-
-## Caveats
-
-The example responses in `src/parceldesk/fixtures/` are built from the documented schema, not captured from the API. Replace them with real, anonymised responses once an API key is available. Open points about the API (which calls cost quota, provider order, `cacheLevel` format) are listed in the hub's `docs/research/17track-api.md`.
+A failing carrier does not stop the others: its numbers come back in `result.rejected`, with `retryable` set when trying later may work. A number the carrier does not know yet is a snapshot with status `not_found`, not an error.
 
 ## Development
 

@@ -1,7 +1,7 @@
 [project]
 name = "parceldesk"
-version = "0.1.0"
-description = "Shipment tracking for Personal Collection Hub: domain types, provider port and 17TRACK client"
+version = "0.2.0"
+description = "Shipment tracking for Personal Collection Hub: domain types, per-carrier provider port and desk"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.13"

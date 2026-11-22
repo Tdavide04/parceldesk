@@ -1,55 +1,50 @@
-"""Fake 17TRACK transport and documented example responses, for this package's tests and for the hub's.
+"""Fakes for this package's tests and for the hub's: a scripted HTTP session, a clock and a fake provider.
 
-    from parceldesk.testing import FakeSeventeenTrack, provider_with
-    fake = FakeSeventeenTrack({"gettrackinfo": [load_fixture("gettrackinfo")]})
-    result = provider_with(fake).track([TrackedNumber("RR123456789IT")])
+    from parceldesk.testing import FakeProvider, snapshot
+    desk = ParcelDesk([FakeProvider("poste", {"RR123456789IT": snapshot("RR123456789IT", "poste", "delivered")})])
 """
 import json
-from importlib.resources import files
 from typing import Any
 
 import requests
 
-from parceldesk.seventeentrack import SeventeenTrack
-
-FIXTURE_NAMES = ("gettrackinfo", "register", "getquota")
+from parceldesk.domain import Status, TrackingEvent, TrackingSnapshot
 
 
-def load_fixture(name: str) -> dict[str, Any]:
-    if name not in FIXTURE_NAMES:
-        raise ValueError(f"unknown fixture {name!r}")
-    return json.loads(files("parceldesk").joinpath("fixtures", f"{name}.json").read_text())
-
-
-def response(status: int, body: object = None) -> requests.Response:
+def response(status: int, body: object = None, text: str | None = None, headers: dict[str, str] | None = None) -> requests.Response:
+    """A JSON response, or an HTML one when `text` is given."""
     r = requests.Response()
     r.status_code = status
-    r._content = json.dumps(body if body is not None else {}).encode()
-    r.headers["Content-Type"] = "application/json"
+    if text is not None:
+        r._content = text.encode()
+        r.headers["Content-Type"] = "text/html; charset=utf-8"
+        r.encoding = "utf-8"
+    else:
+        r._content = json.dumps(body if body is not None else {}).encode()
+        r.headers["Content-Type"] = "application/json"
+    r.headers.update(headers or {})
     return r
 
 
-class FakeSeventeenTrack:
-    """Answers each endpoint from its own script: a payload dict (HTTP 200), a Response, or an exception."""
+class FakeSession:
+    """Answers from a script of Responses or exceptions, in order, and records every call."""
 
-    def __init__(self, scripts: dict[str, list[Any]]):
-        self.scripts = {endpoint: list(items) for endpoint, items in scripts.items()}
+    def __init__(self, script: list[Any]):
+        self.script = list(script)
         self.calls: list[dict[str, Any]] = []
 
-    def request(self, method, url, json=None, headers=None, timeout=None):
-        endpoint = url.rsplit("/", 1)[1]
-        self.calls.append({"method": method, "endpoint": endpoint, "json": json, "headers": headers})
-        script = self.scripts.get(endpoint)
-        if not script:
-            raise AssertionError(f"unexpected call to {endpoint}")
-        outcome = script.pop(0)
+    def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
+        self.calls.append({"method": method, "url": url, **kwargs})
+        if not self.script:
+            raise AssertionError(f"unexpected {method} {url}")
+        outcome = self.script.pop(0)
         if isinstance(outcome, Exception):
             raise outcome
-        return outcome if isinstance(outcome, requests.Response) else response(200, outcome)
+        return outcome
 
 
 class FakeClock:
-    def __init__(self):
+    def __init__(self) -> None:
         self.now = 0.0
         self.sleeps: list[float] = []
 
@@ -61,6 +56,24 @@ class FakeClock:
         self.now += seconds
 
 
-def provider_with(session: Any, clock: FakeClock | None = None, **options: Any) -> SeventeenTrack:
-    clock = clock or FakeClock()
-    return SeventeenTrack("test-key", session=session, clock=clock.clock, sleep=clock.sleep, **options)
+def snapshot(number: str, carrier: str, status: Status = "in_transit", events: list[TrackingEvent] | None = None) -> TrackingSnapshot:
+    return TrackingSnapshot(number=number, carrier=carrier, status=status, status_raw=status, events=events or [])
+
+
+class FakeProvider:
+    """A provider answering from a dict; numbers it does not hold are left out of the answer."""
+
+    def __init__(self, carrier: str, answers: dict[str, TrackingSnapshot] | None = None, max_batch: int = 10, error: Exception | None = None):
+        self.carrier = carrier
+        self.max_batch = max_batch
+        self.answers = answers or {}
+        self.error = error
+        self.batches: list[list[str]] = []
+
+    def track(self, numbers: list[str]) -> list[TrackingSnapshot]:
+        self.batches.append(list(numbers))
+        if self.error is not None:
+            raise self.error
+        return [self.answers[n] for n in numbers if n in self.answers]
+
+

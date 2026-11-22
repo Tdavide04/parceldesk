@@ -1,8 +1,10 @@
-"""Shipment tracking in canonical form, independent of the tracking service.
+"""Shipment tracking in canonical form, independent of the carrier.
 
-Statuses follow 17TRACK's main statuses, which are also a good general vocabulary. Unknown values from a
-provider are kept as they come (`status_raw`) and mapped to `unknown`: the provider's enum is open.
+Each carrier's own status text is kept as it comes (`status_raw`) and mapped to a canonical `Status`; text a
+provider does not recognise maps to `unknown`, because carriers add new wordings without notice.
 """
+import hashlib
+import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -13,7 +15,8 @@ Status = Literal[
     "out_for_delivery", "delivery_failure", "delivered", "exception", "unknown",
 ]
 STATUSES: tuple[str, ...] = get_args(Status)
-# a shipment in one of these needs no more polling unless the user reactivates it
+# a shipment in one of these needs no more polling unless the user reactivates it. No carrier reports
+# `expired`: the hub sets it when a shipment has had no update for too long.
 FINAL_STATUSES = frozenset({"delivered", "expired"})
 
 TRACKING_NUMBER = re.compile(r"[A-Za-z0-9-]{5,50}")
@@ -29,33 +32,15 @@ def normalize_number(number: str) -> str:
 
 @dataclass(frozen=True)
 class TrackedNumber:
-    """A tracking number and, when known, the provider's carrier code (None = let the provider detect it)."""
+    """A tracking number and the carrier that handles it (a provider's `carrier`, such as "poste")."""
 
     number: str
-    carrier: int | None = None
+    carrier: str
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "number", normalize_number(self.number))
-
-
-@dataclass(frozen=True)
-class Registration(TrackedNumber):
-    """What to register: extra hints improve carrier detection and some carriers need them."""
-
-    tag: str | None = None  # free text echoed back by the provider, at most 100 characters
-    origin_country: str | None = None  # ISO 3166-1 alpha-2
-    destination_country: str | None = None
-    destination_postal_code: str | None = None
-    lang: str | None = None  # language of event descriptions, e.g. "it"
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        if self.tag is not None and len(self.tag) > 100:
-            raise ValueError("tag is at most 100 characters")
-        for name in ("origin_country", "destination_country"):
-            value = getattr(self, name)
-            if value is not None and not re.fullmatch(r"[A-Z]{2}", value):
-                raise ValueError(f"{name} must be an ISO 3166-1 alpha-2 code")
+        if not self.carrier:
+            raise ValueError("the carrier is required: see parceldesk.detect_carriers for hints")
 
 
 @dataclass(frozen=True)
@@ -64,62 +49,55 @@ class TrackingEvent:
 
     description: str
     time_utc: datetime | None
-    time_local: str | None = None  # the carrier's own time, offset included, as given
+    time_local: str | None = None  # the carrier's own time, as given
     location: str | None = None
     status: Status = "unknown"
-    sub_status: str | None = None
-    carrier_name: str | None = None
+
+
+def events_hash(events: list[TrackingEvent]) -> str:
+    """Changes whenever any event changes: the hub compares it to skip unchanged shipments."""
+    rows = [
+        [e.description, e.time_utc.isoformat() if e.time_utc else None, e.time_local, e.location, e.status]
+        for e in events
+    ]
+    return hashlib.sha256(json.dumps(rows, ensure_ascii=False).encode()).hexdigest()
 
 
 @dataclass(frozen=True)
 class TrackingSnapshot:
-    """Everything the provider knows about one number right now. Events are newest first."""
+    """Everything the carrier shows for one number right now. Events are newest first.
+
+    A number the carrier does not know yet is a snapshot with status `not_found` and no events, not an error:
+    carriers often show a shipment only hours after the label is printed.
+    """
 
     number: str
-    carrier: int | None
+    carrier: str
     status: Status
     status_raw: str | None
-    sub_status: str | None
-    sub_status_description: str | None
     events: list[TrackingEvent]
-    # changes whenever any event changes: compare it to skip unchanged shipments
-    events_hash: str | None
     delivered_at: datetime | None = None
-    estimated_delivery_from: datetime | None = None
-    estimated_delivery_to: datetime | None = None
-    tag: str | None = None
-    raw_payload: dict[str, Any] = field(default_factory=dict, repr=False)
+    estimated_delivery: str | None = None  # as the carrier writes it: a date, a range or a sentence
+    raw_payload: Any = field(default=None, repr=False)
+    events_hash: str = field(init=False)
 
-
-@dataclass(frozen=True)
-class Accepted:
-    number: str
-    carrier: int | None
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "events_hash", events_hash(self.events))
 
 
 @dataclass(frozen=True)
 class RejectedNumber:
+    """A number nobody could answer for. `retryable` is True when trying again later may work."""
+
     number: str
-    code: int | None
-    message: str
-
-
-@dataclass(frozen=True)
-class BatchResult:
-    """Batch calls can succeed for some numbers and fail for others."""
-
-    accepted: list[Accepted] = field(default_factory=list)
-    rejected: list[RejectedNumber] = field(default_factory=list)
+    carrier: str
+    reason: str
+    retryable: bool
 
 
 @dataclass(frozen=True)
 class TrackingResult:
+    """Calls can succeed for some numbers and fail for others: always check `rejected`."""
+
     snapshots: list[TrackingSnapshot] = field(default_factory=list)
     rejected: list[RejectedNumber] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class Quota:
-    total: int
-    used: int
-    remaining: int

@@ -4,4 +4,4 @@ Shipment tracking library for Personal Collection Hub. Decisions live in the hub
 
 Source code, identifiers, commit messages and `README.md` are in English. Talk to the user in Italian.
 
-Fixtures are built from the 17TRACK documentation until real responses are available: say so whenever a test depends on a shape the API has not confirmed.
+Tracking comes from each carrier's own public pages (Poste Italiane, InPost, GLS, BRT), one provider per carrier; 17TRACK was rejected because it is business-only. Write a provider only from real responses saved as fixtures, with tracking numbers, names and addresses replaced by fake values. Never get past a CAPTCHA or a bot check.

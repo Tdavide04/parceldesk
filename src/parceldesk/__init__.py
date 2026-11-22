@@ -1,26 +1,24 @@
-"""Shipment tracking for Personal Collection Hub: canonical domain types, a provider port and a 17TRACK client."""
+"""Shipment tracking for Personal Collection Hub: canonical domain types, a per-carrier provider port and the desk."""
+from parceldesk.desk import NUMBER_FORMATS, ParcelDesk, detect_carriers
 from parceldesk.domain import (
     FINAL_STATUSES,
     STATUSES,
-    Accepted,
-    BatchResult,
-    Quota,
-    Registration,
     RejectedNumber,
     Status,
     TrackedNumber,
     TrackingEvent,
     TrackingResult,
     TrackingSnapshot,
+    events_hash,
     normalize_number,
 )
+from parceldesk.http import CarrierHttp
 from parceldesk.provider import PermanentTrackingError, TrackingProvider, TransientTrackingError
-from parceldesk.seventeentrack import SeventeenTrack, parse_snapshot
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
-    "FINAL_STATUSES", "STATUSES", "Accepted", "BatchResult", "PermanentTrackingError", "Quota", "Registration",
-    "RejectedNumber", "SeventeenTrack", "Status", "TrackedNumber", "TrackingEvent", "TrackingProvider", "TrackingResult",
-    "TrackingSnapshot", "TransientTrackingError", "normalize_number", "parse_snapshot",
+    "FINAL_STATUSES", "NUMBER_FORMATS", "STATUSES", "CarrierHttp", "ParcelDesk", "PermanentTrackingError",
+    "RejectedNumber", "Status", "TrackedNumber", "TrackingEvent", "TrackingProvider", "TrackingResult",
+    "TrackingSnapshot", "TransientTrackingError", "detect_carriers", "events_hash", "normalize_number",
 ]

@@ -1,40 +1,26 @@
-"""The port between the hub and a tracking service, and the errors it may raise."""
+"""The port between ParcelDesk and one carrier's tracking pages, and the errors a provider may raise."""
 from typing import Protocol
 
-from parceldesk.domain import BatchResult, Quota, Registration, TrackedNumber, TrackingResult
+from parceldesk.domain import TrackingSnapshot
 
 
 class TransientTrackingError(Exception):
-    """Worth retrying later: network, timeout, 5xx, 429 once the client's own retries are exhausted."""
+    """Worth retrying later: network, timeout, 5xx, 429 once the HTTP client's own retries are exhausted."""
 
 
 class PermanentTrackingError(Exception):
-    """Retrying will not help: bad key, IP not allowed, quota exhausted, unexpected response. `code` is the provider's."""
-
-    def __init__(self, message: str, code: int | None = None):
-        super().__init__(message)
-        self.code = code
+    """Retrying will not help until the code changes: access refused, or the page no longer has the shape we parse."""
 
 
 class TrackingProvider(Protocol):
-    """Translates only: no persistence, scheduling or notifications. Batches of any size are split internally."""
+    """Reads one carrier's public tracking (hub ADR-0010: polling). Translates only: no persistence or scheduling.
 
-    name: str
+    `track` receives at most `max_batch` normalised numbers and returns one snapshot per number, in any order.
+    It raises TransientTrackingError or PermanentTrackingError when it cannot answer for the whole batch.
+    """
 
-    def register(self, registrations: list[Registration]) -> BatchResult:
-        """Start tracking. Costs quota at most once per number; an already registered number is rejected, not charged."""
-        ...
+    carrier: str
+    max_batch: int
 
-    def track(self, numbers: list[TrackedNumber]) -> TrackingResult:
-        """Current snapshot of registered numbers (polling, ADR-0010 of the hub). Starts no new tracking."""
-        ...
-
-    def stop(self, numbers: list[TrackedNumber]) -> BatchResult:
-        ...
-
-    def reactivate(self, numbers: list[TrackedNumber]) -> BatchResult:
-        """Restart tracking of stopped numbers; the provider may allow it only once per number."""
-        ...
-
-    def quota(self) -> Quota:
+    def track(self, numbers: list[str]) -> list[TrackingSnapshot]:
         ...
