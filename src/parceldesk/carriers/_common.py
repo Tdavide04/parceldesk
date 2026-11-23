@@ -52,9 +52,9 @@ def local_time(date_text: str, time_text: str = "") -> tuple[datetime | None, st
 
 def newest_first(events: list[TrackingEvent]) -> list[TrackingEvent]:
     """Pages list scans in either order; sort by time, keeping the page order for scans without one."""
-    timed = [e for e in events if e.time_utc is not None]
+    timed = [(e.time_utc, e) for e in events if e.time_utc is not None]
     untimed = [e for e in events if e.time_utc is None]
-    return sorted(timed, key=lambda e: e.time_utc, reverse=True) + untimed
+    return [e for _, e in sorted(timed, key=lambda pair: pair[0], reverse=True)] + untimed
 
 
 class TableRows(HTMLParser):
@@ -67,7 +67,7 @@ class TableRows(HTMLParser):
         self._cell: list[str] | None = None
         self._skip = 0
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in ("script", "style"):
             self._skip += 1
         elif tag == "tr":
@@ -77,7 +77,7 @@ class TableRows(HTMLParser):
         elif tag == "br" and self._cell is not None:
             self._cell.append(" ")
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
         if tag in ("script", "style"):
             self._skip = max(0, self._skip - 1)
         elif tag in ("td", "th") and self._row is not None and self._cell is not None:
@@ -88,7 +88,7 @@ class TableRows(HTMLParser):
                 self.rows.append(self._row)
             self._row = None
 
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
         if self._cell is not None and not self._skip:
             self._cell.append(data)
 
