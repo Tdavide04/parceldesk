@@ -50,6 +50,7 @@ class FakeSession:
         outcome = self.script.pop(0)
         if isinstance(outcome, Exception):
             raise outcome
+        assert isinstance(outcome, requests.Response)
         return outcome
 
 

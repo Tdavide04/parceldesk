@@ -10,8 +10,22 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: ${{ matrix.python }}
       - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run mypy
       - run: uv run pytest
+      - run: uv build
+      - name: Install the built wheel in a clean venv; it must import nothing of PCH or Opportunity Hunter
+        run: |
+          uv venv /tmp/smoke --python ${{ matrix.python }}
+          uv pip install --python /tmp/smoke/bin/python dist/*.whl
+          /tmp/smoke/bin/python -c "import sys, parceldesk, parceldesk.carriers; bad = [m for m in sys.modules if m.split('.')[0] in ('pch', 'pch_marketplace_kit', 'opportunity_hunter')]; sys.exit(1 if bad else 0)"
