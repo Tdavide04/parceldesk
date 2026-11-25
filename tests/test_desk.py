@@ -47,6 +47,8 @@ def test_one_provider_per_carrier():
     ("1" * 24, ["inpost"]),
     ("Y1550012467", ["gls"]),
     ("123456789012", ["brt", "gls", "poste"]),
+    ("12345678", ["mondialrelay"]),
+    ("1" * 14, ["brt"]),
     ("ABC", None),
     ("ZZ-1234567", []),
 ])

@@ -14,7 +14,8 @@ NUMBER_FORMATS: dict[str, tuple[re.Pattern[str], ...]] = {
     "poste": (re.compile(r"[A-Z]{2}\d{9}IT"), re.compile(r"[A-Z0-9]{12,13}")),
     "inpost": (re.compile(r"\d{24}"),),
     "gls": (re.compile(r"[A-Z][A-Z0-9]\d{1,9}"), re.compile(r"\d{11,12}")),
-    "brt": (re.compile(r"\d{12}"), re.compile(r"\d{15}"), re.compile(r"\d{18,19}")),
+    "brt": (re.compile(r"\d{12}"), re.compile(r"\d{14,15}"), re.compile(r"\d{18,19}")),
+    "mondialrelay": (re.compile(r"\d{8}"),),
 }
 
 

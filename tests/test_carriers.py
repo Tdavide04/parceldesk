@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 
 from parceldesk import CarrierHttp, ParcelDesk, PermanentTrackingError, TrackedNumber
-from parceldesk.carriers import ALL, Brt, Gls, InPost
+from parceldesk.carriers import ALL, Brt, Gls, InPost, MondialRelay
 from parceldesk.carriers._common import local_time, status_of
 from parceldesk.carriers.gls import code_type
 from parceldesk.testing import FakeClock, FakeSession, load_fixture, response
@@ -124,6 +124,47 @@ def test_brt_documented_delivery():
     assert snapshot.delivered_at == datetime(2026, 11, 20, 11, 5, tzinfo=UTC)
 
 
+# --- Mondial Relay --------------------------------------------------------------------------------
+
+def test_mondialrelay_real_parcel_in_transit():
+    provider, session = make(MondialRelay, response(200, text=load_fixture("mondialrelay_in_transit")))
+    [snapshot] = provider.track(["00000042"])
+    assert session.calls[0]["params"] == {"exp": "00000042", "language": "IT"}
+    assert (snapshot.status, snapshot.status_raw, snapshot.delivered_at) == ("in_transit", "Pacco consegnato a Mondial Relay", None)
+    assert [(e.time_local, e.status, e.description) for e in snapshot.events] == [
+        ("2026-11-25T12:25:00+01:00", "in_transit", "Colis expédié depuis le site logisitique"),
+        ("2026-11-24T18:27:00+01:00", "in_transit", "Pacco preso in carico nel Punto Relais"),
+        ("2026-11-24T13:31:00+01:00", "info_received", "Pacco in preparazione presso lo spedizioniere"),
+    ]
+
+
+def test_mondialrelay_sends_the_link_settings():
+    clock = FakeClock()
+    session = FakeSession([response(200, text=load_fixture("mondialrelay_not_found"))])
+    http = CarrierHttp("mondialrelay", session=session, clock=clock.clock, sleep=clock.sleep)
+    MondialRelay(http, ens="V1ITTODE", country="DE").track(["00000001"])
+    assert session.calls[0]["params"] == {"exp": "00000001", "language": "IT", "ens": "V1ITTODE", "country": "DE"}
+
+
+def test_mondialrelay_unknown_number_is_not_found():
+    provider, _ = make(MondialRelay, response(200, text=load_fixture("mondialrelay_not_found")))
+    [snapshot] = provider.track(["00000001"])
+    assert (snapshot.status, snapshot.events) == ("not_found", [])
+
+
+def test_mondialrelay_delivered_step_and_phrases():
+    page = load_fixture("mondialrelay_in_transit").replace("<li >", '<li class="validate">')
+    provider, _ = make(MondialRelay, response(200, text=page))
+    [snapshot] = provider.track(["00000042"])
+    assert (snapshot.status, snapshot.status_raw) == ("delivered", "Pacco consegnato")
+
+
+def test_mondialrelay_changed_page_is_an_error():
+    provider, _ = make(MondialRelay, response(200, text="<html><body>nuovo sito</body></html>"))
+    with pytest.raises(PermanentTrackingError):
+        provider.track(["00000042"])
+
+
 # --- shared ---------------------------------------------------------------------------------------
 
 @pytest.mark.parametrize(("phrase", "status"), [
@@ -143,6 +184,6 @@ def test_local_time_handles_summer_and_two_digit_years():
 
 def test_all_carriers_behind_one_desk():
     desk = ParcelDesk([make(cls)[0] for cls in ALL])
-    assert desk.carriers == ("poste", "inpost", "gls", "brt")
+    assert desk.carriers == ("poste", "inpost", "gls", "brt", "mondialrelay")
     result = ParcelDesk([make(Brt, response(503), response(503), response(503), response(503))[0]]).track([TrackedNumber("123456789012", "brt")])
     assert result.rejected[0].retryable
