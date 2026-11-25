@@ -1,0 +1,67 @@
+{
+  "tracking_number": "000000000000000000000004",
+  "service": "inpost_locker_customer_service_point",
+  "type": "inpost_locker_customer_service_point",
+  "status": "dispatched_by_sender",
+  "custom_attributes": {
+    "size": "C",
+    "target_machine_id": "ITXXX00001P",
+    "dropoff_machine_id": "ITXXX00002P",
+    "target_machine_detail": {
+      "name": "ITXXX00001P",
+      "opening_hours": "Lun-Gio: 09:00 - 12:30 - 15:30 - 19:00 Ven: 09:00 - 12:00 - 15:30 - 19:00 Sab: 09:30 - 12:30",
+      "location_description": "presso Negozio di prova",
+      "location": {
+        "latitude": 45.0,
+        "longitude": 9.0
+      },
+      "address": {
+        "line1": "Via Esempio 1",
+        "line2": "00000 Città"
+      },
+      "type": [
+        "pok",
+        "pop"
+      ],
+      "location247": false
+    },
+    "dropoff_machine_detail": {
+      "name": "ITXXX00002P",
+      "opening_hours": "Lun-Ven: 8:30 - 13:00 - 16:00 - 19:00 Sab: 9:00 - 13:00",
+      "location_description": "presso Negozio di prova",
+      "location": {
+        "latitude": 45.0,
+        "longitude": 9.0
+      },
+      "address": {
+        "line1": "Via Esempio 1",
+        "line2": "00000 Città"
+      },
+      "type": [
+        "pok",
+        "pop"
+      ],
+      "location247": false
+    },
+    "end_of_week_collection": false
+  },
+  "tracking_details": [
+    {
+      "origin_status": "CustomerStored",
+      "status": "dispatched_by_sender",
+      "agency": "MI2",
+      "location": null,
+      "datetime": "2026-11-24T18:28:02.000+01:00"
+    },
+    {
+      "origin_status": "CustomerDelivering",
+      "status": "confirmed",
+      "agency": "MI2",
+      "location": null,
+      "datetime": "2026-11-19T15:48:24.000+01:00"
+    }
+  ],
+  "expected_flow": [],
+  "created_at": "2026-11-19T15:48:24.422+01:00",
+  "updated_at": "2026-11-24T18:28:02.976+01:00"
+}
