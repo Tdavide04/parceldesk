@@ -104,6 +104,12 @@ def test_brt_unknown_label_number_is_not_found():
     assert session.calls[0]["params"]["brtCode"] == "00000000000001"
 
 
+def test_brt_label_not_scanned_yet_is_not_found():
+    provider, _ = make(Brt, response(200, text=load_fixture("brt_not_yet_scanned")))
+    [snapshot] = provider.track(["00000000000002"])
+    assert snapshot.status == "not_found"
+
+
 def test_brt_refused_code_says_why():
     provider, _ = make(Brt, response(200, text=load_fixture("brt_invalid_code")))
     with pytest.raises(PermanentTrackingError, match="15-digit numbers are only on myBRT"):
