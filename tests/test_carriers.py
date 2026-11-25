@@ -35,6 +35,17 @@ def test_inpost_documented_delivery():
     assert snapshot.events[3].location == "MI1"
 
 
+def test_inpost_real_parcel_left_at_a_point():
+    provider, _ = make(InPost, response(200, load_fixture("inpost_in_transit")))
+    [snapshot] = provider.track(["000000000000000000000004"])
+    assert (snapshot.status, snapshot.status_raw, snapshot.delivered_at) == ("in_transit", "dispatched_by_sender", None)
+    assert [(e.status, e.description, e.location) for e in snapshot.events] == [
+        ("in_transit", "Consegnata dal mittente a InPost", "MI2"),
+        ("info_received", "Spedizione confermata dal mittente", "MI2"),
+    ]
+    assert snapshot.events[0].time_utc == datetime(2026, 11, 24, 17, 28, 2, tzinfo=UTC)
+
+
 def test_inpost_unknown_status_code_is_kept():
     payload = {"status": "something_new", "tracking_details": [{"status": "something_new", "datetime": "2026-11-20T10:00:00+01:00"}]}
     provider, _ = make(InPost, response(200, payload))
@@ -84,6 +95,19 @@ def test_brt_long_codes_go_in_brt_code():
     provider, session = make(Brt, response(200, text=load_fixture("brt_not_found")))
     provider.track(["0000000000000000001"])
     assert session.calls[0]["params"]["brtCode"] == "0000000000000000001"
+
+
+def test_brt_unknown_label_number_is_not_found():
+    provider, session = make(Brt, response(200, text=load_fixture("brt_label_not_found")))
+    [snapshot] = provider.track(["00000000000001"])
+    assert snapshot.status == "not_found"
+    assert session.calls[0]["params"]["brtCode"] == "00000000000001"
+
+
+def test_brt_refused_code_says_why():
+    provider, _ = make(Brt, response(200, text=load_fixture("brt_invalid_code")))
+    with pytest.raises(PermanentTrackingError, match="15-digit numbers are only on myBRT"):
+        provider.track(["000000000000001"])
 
 
 def test_brt_documented_delivery():

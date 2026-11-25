@@ -1,10 +1,11 @@
 """InPost Italy, from the public ShipX tracking resource (no key needed).
 
-Confirmed on a real response (fixture `inpost_not_found.json`, 2026-11-22): an unknown number answers HTTP 404
-with `{"trackingNumber", "message"}`. The shape of a known shipment follows the ShipX documentation ("Shipment
-Tracking"): `status`, `tracking_details` newest first with `status`, `origin_status`, `agency`, `location` and an
-ISO `datetime`, plus `created_at`/`updated_at`. It has not been checked on an Italian shipment yet
-(fixture `inpost_documented.json` is built from the documentation).
+Confirmed on real responses: an unknown number answers HTTP 404 with `{"trackingNumber", "message"}` (fixture
+`inpost_not_found.json`, 2026-11-22), and a known Italian shipment answers the shape of the ShipX documentation
+("Shipment Tracking"): `status`, `tracking_details` newest first with `status`, `origin_status`, `agency`, `location`
+(null so far) and an ISO `datetime` with offset, plus `created_at`/`updated_at` (fixture `inpost_in_transit.json`,
+2026-11-25, a parcel left at an InPost point). InPost numbers are 24 digits. The later statuses (pickup, delivery)
+still come from the documentation (fixture `inpost_documented.json`).
 """
 from datetime import UTC, datetime
 from typing import Any
@@ -22,7 +23,7 @@ STATUSES: dict[str, tuple[Status, str]] = {
     "offers_prepared": ("info_received", "Spedizione creata"),
     "offer_selected": ("info_received", "Spedizione creata"),
     "confirmed": ("info_received", "Spedizione confermata dal mittente"),
-    "dispatched_by_sender": ("in_transit", "Consegnata dal mittente al locker"),
+    "dispatched_by_sender": ("in_transit", "Consegnata dal mittente a InPost"),
     "dispatched_by_sender_to_pok": ("in_transit", "Consegnata dal mittente al punto InPost"),
     "collected_from_sender": ("in_transit", "Ritirata dal mittente"),
     "taken_by_courier": ("in_transit", "Presa in carico dal corriere"),
