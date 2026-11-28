@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 
 from parceldesk import CarrierHttp, ParcelDesk, PermanentTrackingError, TrackedNumber
-from parceldesk.carriers import ALL, Brt, Gls, InPost, MondialRelay
+from parceldesk.carriers import ALL, Brt, Gls, InPost, JapanPost, MondialRelay
 from parceldesk.carriers._common import local_time, status_of
 from parceldesk.carriers.gls import code_type
 from parceldesk.testing import FakeClock, FakeSession, load_fixture, response
@@ -137,6 +137,43 @@ def test_mondial_relay_phrases(phrase, status):
     assert mondial_status(phrase) == status
 
 
+# --- Japan Post -----------------------------------------------------------------------------------
+
+def test_japan_post_reads_the_history_in_japan_time():
+    provider, session = make(JapanPost, response(200, text=load_fixture("japanpost_in_transit")))
+    [snapshot] = provider.track(["LX000000000JP"])
+    assert session.calls[0]["params"] == {"reqCodeNo1": "LX000000000JP", "searchKind": "S002", "locale": "en"}
+    assert [e.description for e in snapshot.events] == [
+        "Dispatch from outward office of exchange", "Arrival at outward office of exchange", "Posting/Collection",
+    ]
+    assert snapshot.status == "in_transit"
+    assert snapshot.events[0].time_local == "2026-11-14T02:50:00+09:00"
+    assert snapshot.events[0].time_utc == datetime(2026, 11, 13, 17, 50, tzinfo=UTC)
+    assert snapshot.events[0].location == "TOKYO INT, TOKYO"
+
+
+def test_japan_post_unknown_number_is_not_found():
+    provider, _ = make(JapanPost, response(200, text=load_fixture("japanpost_not_found")))
+    assert provider.track(["LX000000000JP"])[0].status == "not_found"
+
+
+def test_japan_post_events_in_italy_are_in_italian_time():
+    from parceldesk.carriers.japanpost import _event
+
+    event = _event(["12/02/2026 09:15", "Final delivery", "", "ROMA", "ITALY"])
+    assert (event.status, event.time_local) == ("delivered", "2026-12-02T09:15:00+01:00")
+
+
+@pytest.mark.parametrize(("phrase", "status"), [
+    ("Posting/Collection", "in_transit"), ("Arrival at inward office of exchange", "in_transit"),
+    ("Final delivery", "delivered"), ("Absence. Attempted delivery.", "delivery_failure"), ("Returned to sender", "exception"),
+])
+def test_japan_post_phrases(phrase, status):
+    from parceldesk.carriers.japanpost import status_of as japan_status
+
+    assert japan_status(phrase) == status
+
+
 # --- shared ---------------------------------------------------------------------------------------
 
 @pytest.mark.parametrize(("phrase", "status"), [
@@ -156,6 +193,6 @@ def test_local_time_handles_summer_and_two_digit_years():
 
 def test_all_carriers_behind_one_desk():
     desk = ParcelDesk([make(cls)[0] for cls in ALL])
-    assert desk.carriers == ("poste", "inpost", "gls", "brt", "mondialrelay")
+    assert desk.carriers == ("poste", "inpost", "gls", "brt", "mondialrelay", "japanpost")
     result = ParcelDesk([make(Brt, response(503), response(503), response(503), response(503))[0]]).track([TrackedNumber("123456789012", "brt")])
     assert result.rejected[0].retryable

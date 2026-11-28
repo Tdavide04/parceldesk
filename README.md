@@ -22,6 +22,7 @@ Providers read the carriers' own public tracking pages over plain HTTP, as the S
 | GLS Italy (`gls`) | `Gls` | `POST www.gls-italy.com/it/servizi-per-destinatari/dettaglio-spedizione`, HTML form | not found; known shipments follow public scrapers |
 | BRT (`brt`) | `Brt` | `GET vas.brt.it/vas/sped_det_show.hsm`, HTML (`Nspediz` = 12 digits, else `brtCode`); a 15-digit parcel ID (ID collo) fails at once: no public page tracks it | not found; known shipments follow public scrapers |
 | Mondial Relay (`mondialrelay`) | `MondialRelay` | `GET www.mondialrelay.com/en-gb/parcel-tracking/`, HTML (`exp` = 8 digits, `ens` = sender brand, Vinted's `V1TTO` by default) | in transit, not found; pickup and delivery phrases follow the page's progress bar |
+| Japan Post (`japanpost`) | `JapanPost` | `GET trackings.post.japanpost.jp/services/srv/search/direct`, HTML (`locale=en`); times local, Japan or Italy | in transit, not found; later events follow the UPU names |
 
 `parceldesk.carriers.ALL` lists them. Each module says which shapes are confirmed and which are assumed; `src/parceldesk/fixtures/README.md` says which fixtures are real. Statuses come from the carrier's sentence through shared Italian phrases, and a sentence nobody recognises maps to `unknown`, with the original kept in `status_raw`. Providers never get past a CAPTCHA or a bot check: if a carrier adds one, the page stops matching and the provider raises `PermanentTrackingError`.
 
