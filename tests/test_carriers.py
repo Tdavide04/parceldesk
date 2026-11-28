@@ -86,6 +86,13 @@ def test_brt_long_codes_go_in_brt_code():
     assert session.calls[0]["params"]["brtCode"] == "0000000000000000001"
 
 
+def test_brt_parcel_id_fails_at_once_without_a_request():
+    provider, session = make(Brt)
+    with pytest.raises(PermanentTrackingError, match="ID collo"):
+        provider.track(["000000000000001"])
+    assert session.calls == []
+
+
 def test_brt_documented_delivery():
     provider, _ = make(Brt, response(200, text=load_fixture("brt_documented")))
     [snapshot] = provider.track(["123456789012"])

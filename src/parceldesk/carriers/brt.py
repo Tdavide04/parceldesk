@@ -5,6 +5,11 @@ Confirmed on real responses (fixture `brt_not_found.html`, 2026-11-22): `Nspediz
 oppure ancora in elaborazione"). Longer parcel codes go in `brtCode`, as public scrapers of this page do (not
 confirmed). The layout of a known shipment is not confirmed either: public scrapers read rows of four cells
 (date, time, branch, event). The parser takes every table row whose first two cells are a date and a time.
+
+A 15-digit parcel ID ("ID collo", e.g. on BRT-Fermopoint drop-offs and Vinted labels) cannot be tracked here: this page
+answers "BRTcode ... non valido" (its form takes a BRTcode of 14 or 19 digits), and myBRT shows a parcel only to the
+account it is assigned to, behind a Cloudflare Turnstile check (seen 2026-11-28). Such numbers fail at once, without a
+request.
 """
 import re
 
@@ -16,6 +21,7 @@ from parceldesk.provider import PermanentTrackingError
 URL = "https://vas.brt.it/vas/sped_det_show.hsm"
 NOT_FOUND = re.compile(r"TIS0564|Spedizione non trovata")
 SHIPMENT_NUMBER = re.compile(r"\d{12}")
+PARCEL_ID = re.compile(r"\d{15}")
 
 
 class Brt:
@@ -29,6 +35,10 @@ class Brt:
         return [self._one(number) for number in numbers]
 
     def _one(self, number: str) -> TrackingSnapshot:
+        if PARCEL_ID.fullmatch(number):
+            raise PermanentTrackingError(
+                "brt: a 15-digit parcel ID (ID collo) has no public tracking: use the BRTcode or the 12-digit shipment number"
+            )
         key = "Nspediz" if SHIPMENT_NUMBER.fullmatch(number) else "brtCode"
         response = self._http.request("GET", URL, params={"referer": "sped_numspe_par.htm", key: number})
         response.encoding = response.encoding or "iso-8859-15"  # the page declares it, the header may not
