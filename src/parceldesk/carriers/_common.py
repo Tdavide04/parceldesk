@@ -15,7 +15,7 @@ PHRASES: tuple[tuple[str, Status], ...] = (
     (r"\bnon\b.*consegnat|mancata consegna|tentativo di consegna|destinatario assente", "delivery_failure"),
     (r"in restituzione|reso al mittente|rientrata al mittente|smarrit|danneggiat|respint|rifiutat", "exception"),
     (r"consegnat", "delivered"),
-    (r"in consegna|affidata al corriere per la consegna|in distribuzione", "out_for_delivery"),
+    (r"in consegna|affidata al corriere per la consegna|in distribuzione|consegna prevista nel corso della giornata", "out_for_delivery"),
     (r"disponibile (per il|al) ritiro|pronta per il ritiro|in giacenza|fermopoint|punto di ritiro", "available_for_pickup"),
     (r"in transito|partit|arrivat|in lavorazione|presa in carico|ritirat|smistat|in viaggio", "in_transit"),
     (r"dati ricevuti|in attesa di|registrat|creat", "info_received"),
