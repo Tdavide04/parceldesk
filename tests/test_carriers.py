@@ -1,4 +1,4 @@
-"""InPost, GLS and BRT. Not-found pages are real; known shipments come from `*_documented` fixtures (assumed shapes)."""
+"""Carrier providers. Not-found pages are real; a known GLS shipment is real too; InPost and BRT known shipments come from `*_documented` fixtures (assumed shapes)."""
 from datetime import UTC, datetime
 
 import pytest
@@ -51,13 +51,23 @@ def test_gls_unknown_number_is_not_found():
     assert session.calls[0]["data"]["tipo_codice"] == "nazionale"
 
 
-def test_gls_documented_delivery_newest_first():
-    provider, _ = make(Gls, response(200, text=load_fixture("gls_documented")))
-    [snapshot] = provider.track(["Y1000000001"])
-    assert snapshot.status == "delivered"
-    assert [e.description for e in snapshot.events] == ["CONSEGNATA", "IN CONSEGNA", "ARRIVATA IN SEDE", "PARTITA"]
-    assert snapshot.events[0].location == "BOLOGNA"
-    assert snapshot.events[0].time_utc == datetime(2026, 11, 20, 13, 32, tzinfo=UTC)
+def test_gls_real_delivery_reads_every_row_and_leaves_out_who_signed():
+    provider, _ = make(Gls, response(200, text=load_fixture("gls_delivered")))
+    [snapshot] = provider.track(["XY123456789"])
+    assert (snapshot.status, snapshot.status_raw) == ("delivered", "Consegnata.")
+    assert snapshot.delivered_at == datetime(2026, 11, 5, 11, 43, tzinfo=UTC)
+    assert [(e.description, e.status) for e in snapshot.events] == [
+        ("Consegnata.", "delivered"),
+        ("Consegna prevista nel corso della giornata odierna.", "out_for_delivery"),
+        ("Arrivata nella Sede GLS locale.", "in_transit"),
+        ("La spedizione non e' arrivata presso la sede GLS destinataria.", "in_transit"),
+        ("In transito.", "in_transit"),
+        ("Partita dalla sede mittente. In transito.", "in_transit"),
+        ("La spedizione e' stata creata dal mittente, attendiamo che ci venga affidata per l'invio a destinazione.", "info_received"),
+    ]
+    assert snapshot.events[0].location == "Roma"
+    assert snapshot.events[-1].time_local == "2026-11-03T00:00:00+01:00"  # a date without a time
+    assert not any("*" in e.description for e in snapshot.events)
 
 
 def test_gls_page_without_table_or_message_is_permanent():

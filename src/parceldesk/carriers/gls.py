@@ -1,9 +1,10 @@
 """GLS Italy, from the HTML form on www.gls-italy.com ("Ricerca spedizione"). One number per request.
 
-Confirmed on a real response (fixture `gls_not_found.html`, 2026-11-22): an unknown number shows the sentence
-"La spedizione potrebbe non essere ancora stata affidata alla Sede GLS ...". The layout of a known shipment is not
-confirmed: it follows public scrapers of this page (an "ESITO SPEDIZIONE" table whose rows hold date and time,
-place and status). The parser is deliberately loose: it takes every table row with a date in its first cell.
+Confirmed on real responses: an unknown number shows the sentence "La spedizione potrebbe non essere ancora stata
+affidata alla Sede GLS ..." (fixture `gls_not_found.html`, 2026-11-22). A known one has an "ESITO SPEDIZIONE" table
+whose rows are date and time, place, status and notes, newest first (fixture `gls_delivered.html`, 2026-11-28).
+The notes hold the masked name of who signed at delivery and are left out; the first row may have a date without
+a time. The parser takes every table row with a date in its first cell.
 """
 import re
 from typing import Any
@@ -65,8 +66,9 @@ def _event(cells: list[str]) -> TrackingEvent | None:
     time_utc, time_local = local_time(cells[0])
     if time_utc is None:
         return None
-    description = cells[-1]
-    location = cells[1] if len(cells) >= 3 else None
+    # date and time, place, status, notes: the status is the event; the notes (who signed) are not kept
+    description = cells[2]
+    location = cells[1]
     if not description:
         return None
     return TrackingEvent(description, time_utc, time_local, location or None, status_of(description))
