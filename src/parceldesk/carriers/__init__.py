@@ -2,8 +2,9 @@
 from parceldesk.carriers.brt import Brt
 from parceldesk.carriers.gls import Gls
 from parceldesk.carriers.inpost import InPost
+from parceldesk.carriers.mondialrelay import MondialRelay
 from parceldesk.carriers.poste import PosteItaliane
 
-ALL = (PosteItaliane, InPost, Gls, Brt)
+ALL = (PosteItaliane, InPost, Gls, Brt, MondialRelay)
 
-__all__ = ["ALL", "Brt", "Gls", "InPost", "PosteItaliane"]
+__all__ = ["ALL", "Brt", "Gls", "InPost", "MondialRelay", "PosteItaliane"]
