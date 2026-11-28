@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 
 from parceldesk import CarrierHttp, ParcelDesk, PermanentTrackingError, TrackedNumber
-from parceldesk.carriers import ALL, Brt, Gls, InPost
+from parceldesk.carriers import ALL, Brt, Gls, InPost, MondialRelay
 from parceldesk.carriers._common import local_time, status_of
 from parceldesk.carriers.gls import code_type
 from parceldesk.testing import FakeClock, FakeSession, load_fixture, response
@@ -101,6 +101,42 @@ def test_brt_documented_delivery():
     assert snapshot.delivered_at == datetime(2026, 11, 20, 11, 5, tzinfo=UTC)
 
 
+# --- Mondial Relay -------------------------------------------------------------------------------
+
+def test_mondial_relay_reads_the_days_and_steps_newest_first():
+    provider, session = make(MondialRelay, response(200, text=load_fixture("mondialrelay_in_transit")))
+    [snapshot] = provider.track(["10000000"])
+    assert session.calls[0]["params"] == {"ens": "V1TTO", "exp": "10000000", "language": "EN"}
+    assert (snapshot.status, snapshot.status_raw) == ("in_transit", "Parcel shipped from the site HERMES DE")
+    assert snapshot.events[0].time_local == "2026-11-27T15:49:00+01:00"
+    assert snapshot.events[-1].description == "Parcel in preparation at the sender"
+    assert snapshot.events[-1].status == "info_received"
+    assert "Colis expédié depuis le site logisitique" in [e.description for e in snapshot.events]
+    assert [e.time_utc for e in snapshot.events] == sorted((e.time_utc for e in snapshot.events), reverse=True)
+
+
+def test_mondial_relay_unknown_number_is_not_found():
+    provider, _ = make(MondialRelay, response(200, text=load_fixture("mondialrelay_not_found")))
+    assert provider.track(["10000000"])[0].status == "not_found"
+
+
+def test_mondial_relay_page_without_events_or_form_has_changed():
+    provider, _ = make(MondialRelay, response(200, text="<html><body>Maintenance</body></html>"))
+    with pytest.raises(PermanentTrackingError, match="changed"):
+        provider.track(["10000000"])
+
+
+@pytest.mark.parametrize(("phrase", "status"), [
+    ("Parcel picked up in the Pudo", "in_transit"), ("Parcel delivered to Mondial Relay", "unknown"),
+    ("Parcel available at the Point Relais (pickup point)", "available_for_pickup"), ("Delivered parcel", "delivered"),
+    ("Parcel picked up by the recipient", "delivered"),
+])
+def test_mondial_relay_phrases(phrase, status):
+    from parceldesk.carriers.mondialrelay import status_of as mondial_status
+
+    assert mondial_status(phrase) == status
+
+
 # --- shared ---------------------------------------------------------------------------------------
 
 @pytest.mark.parametrize(("phrase", "status"), [
@@ -120,6 +156,6 @@ def test_local_time_handles_summer_and_two_digit_years():
 
 def test_all_carriers_behind_one_desk():
     desk = ParcelDesk([make(cls)[0] for cls in ALL])
-    assert desk.carriers == ("poste", "inpost", "gls", "brt")
+    assert desk.carriers == ("poste", "inpost", "gls", "brt", "mondialrelay")
     result = ParcelDesk([make(Brt, response(503), response(503), response(503), response(503))[0]]).track([TrackedNumber("123456789012", "brt")])
     assert result.rejected[0].retryable
